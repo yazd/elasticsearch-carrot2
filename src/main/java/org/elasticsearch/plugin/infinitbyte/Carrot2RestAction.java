@@ -128,16 +128,20 @@ public class Carrot2RestAction extends BaseRestHandler {
                     }
 
                     for (SearchHit hit : response.getHits()) {
-                        Map<String, Object> objectMap = hit.sourceAsMap();
-                        if(objectMap==null){
-                            if(hit.fields()!=null){
-                                 objectMap=new HashMap<String, Object> ();
-                                 for (SearchHitField filed : hit.fields().values()){
-                                     objectMap.put( filed.name(),filed.getValue());
-                                 }
-                            }
 
+                        Map<String, Object> objectMap = hit.sourceAsMap();
+
+                        if (objectMap==null) {
+                            if (hit.fields()!=null) {
+                                objectMap = new HashMap<String, Object>();
+                                for (SearchHitField field : hit.fields().values()){
+                                    objectMap.putAll(getValue(field.name(), field.getValue()));
+                                }
+                            }
+                        } else {
+                            objectMap = fixNesting(objectMap);
                         }
+
                         if(objectMap!=null){
 
                          String title ="";
@@ -197,7 +201,7 @@ public class Carrot2RestAction extends BaseRestHandler {
                         }
                         documents.add(doc);
 
-                    }
+                      }
                     }
 
                     final Map<String, Object> attributes = Maps.newHashMap();
@@ -334,6 +338,27 @@ public class Carrot2RestAction extends BaseRestHandler {
                 }
             }
         });
+    }
+
+    private Map<String, Object> fixNesting(Map<String, Object> map) {
+      Map<String, Object> result = new HashMap<String, Object>();
+      for (String key : map.keySet()) {
+        result.putAll(getValue(key, map.get(key)));
+      }
+      return result;
+    }
+
+    private Map<String, Object> getValue(String name, Object value) {
+      Map<String, Object> result = new HashMap<String, Object>();
+      if (value instanceof HashMap) {
+        HashMap<String, Object> container = (HashMap<String, Object>) value;
+        for (String key : container.keySet()) {
+          result.putAll(getValue(name + "." + key, container.get(key)));
+        }
+      } else {
+        result.put(name, value);
+      }
+      return result;
     }
 
     private Carrot2Request parseSearchRequest(RestRequest request) {
